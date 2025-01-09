@@ -1,0 +1,11 @@
+MedQA: https://github.com/jind11/MedQA
+
+PubMedQA: https://github.com/pubmedqa/pubmedqa
+
+CHQ-Summ: https://github.com/abachaa/CHQ-Summ
+
+COVID-QA: https://github.com/covid-qa/covid-qa
+
+MedDialog: https://github.com/UCSD-AI4H/Medical-Dialogue-System
+
+DDI Corpus: https://github.com/isegura/DDICorpus
