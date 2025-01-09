@@ -1,2 +1,5 @@
 # LLM-Medical-guidance
-Fine-tune a LLM for the medical guidance
+
+graduation project.
+
+A fine-tuned LLM for medical guidance
