@@ -1,0 +1,103 @@
+body, html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background-color: #fff; /* 设置背景为白色 */
+  display: flex;
+  justify-content: center; /* 水平居中 */
+  align-items: center; /* 垂直居中 */
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  width: 61.8vw; /* 宽度为视口宽度的 61.8% */
+  height: 100vh; /* 高度为视口高度的 61.8% */
+  background-color: #fff; /* 设置背景为白色 */
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* 添加阴影效果 */
+  border-radius: 8px; /* 添加圆角 */
+  overflow: hidden; /* 防止内容溢出 */
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto; /* 允许消息区域滚动 */
+  padding: 10px;
+  background-color: #f9f9f9; /* 设置消息区域背景为浅灰色 */
+}
+
+.chat-bubble {
+  display: flex;
+  align-items: center;
+  max-width: 60%;
+  padding: 10px;
+  border-radius: 10px;
+  margin: 5px 0;
+}
+
+.chat-bubble.ai {
+  background-color: #e6f7ff;
+  align-self: flex-start;
+}
+
+.chat-bubble.user {
+  background-color: #f0f0f0;
+  align-self: flex-end;
+}
+
+.bubble-content {
+  margin: 0 10px;
+}
+
+/* “生成中....”动画效果 */
+.bubble-content.typing {
+  position: relative;
+}
+
+.bubble-content.typing::after {
+  content: '...';
+  position: absolute;
+  animation: typing 2s infinite; /* 延长动画时间 */
+}
+
+@keyframes typing {
+  0% {
+    content: '.';
+  }
+  25% {
+    content: '..';
+  }
+  50% {
+    content: '...';
+  }
+  75% {
+    content: '....'; /* 增加更多点 */
+  }
+  100% {
+    content: '.'; /* 回到一个点 */
+  }
+}
+
+.chat-input {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  background-color: #fff; /* 设置输入区域背景为白色 */
+  border-top: 1px solid #e8e8e8; /* 添加上边框 */
+}
+
+.chat-input .ant-input {
+  flex: 1;
+  resize: none; /* 禁止调整文本框大小 */
+  border-radius: 8px; /* 添加圆角 */
+}
+
+/* 自定义文本框样式 */
+.custom-textarea {
+  max-height: 150px; /* 设置最大高度 */
+  overflow-y: auto; /* 超过最大高度后显示滚动条 */
+}
+
+.chat-input .ant-btn {
+  height: auto;
+}
