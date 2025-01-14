@@ -1,20 +1,13 @@
 import os
 from time import sleep
-
 import wandb
 import random
 
-wandb.init(project='test',
-           settings=wandb.Settings(start_method='thread', console='off'),
-           name="sleep",
-           config={
-               'learning_rate': 0.01,
-               'architecture': 'CNN',
-               'dataset': 'random',
-               'batch_size': 32,
-               "epoch": 100
-               })
+"""
+model: Llama3.2-3B-instruct
+data source: github
+author: Tianyi Jiang
+"""
 
 if __name__ == '__main__':
-
-    wandb.finish()
+    print("main process")
