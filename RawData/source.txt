@@ -1,5 +1,0 @@
-MedQA: https://github.com/jind11/MedQA
-
-PubMedQA: https://github.com/pubmedqa/pubmedqa
-
-DDI Corpus: https://github.com/isegura/DDICorpus
