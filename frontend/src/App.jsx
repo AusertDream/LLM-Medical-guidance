@@ -16,34 +16,76 @@ const App = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
+    const postUserContent = async (userMessages) => {
+        const url = 'http://localhost:10000/generate'; // Flask API 地址
+        const userMessage = {
+            prompt: userMessages
+        }
+        try {
+            const response = await fetch(url, {
+                method: 'POST', // 使用 POST 请求
+                headers: {
+                'Content-Type': 'application/json', // 请求体格式为 JSON
+                },
+                body: JSON.stringify(userMessage), // 将传入的用户内容转换为 JSON 字符串
+            });
+        
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+        
+            const data = await response.json(); // 解析返回的 JSON 数据
+            console.log(data);
+            const awer = data['generated_text'];
+            setMessages((prevMessages) => [
+                ...prevMessages.filter((msg) => !msg.isTyping), 
+                { text: `AI: ${awer}`, sender: 'ai' },
+            ]);
+            console.log(awer); // 打印响应数据
+        } catch (error) {
+            // 请求失败时，显示错误消息并恢复输入框
+            setMessages((prevMessages) => [
+                ...prevMessages.filter((msg) => !msg.isTyping), // 移除“生成中....”消息
+                { text: `Error: ${error.message}`, sender: 'ai' }, // 显示错误消息
+            ]);
+            console.error('Error occurred:', error);
+        } finally {
+            // 无论请求成功或失败，都恢复输入框和按钮
+            setIsLoading(false); // 解锁输入框和按钮
+        }
+        
+      };
+
     // 监听 messages 的变化，每次更新时滚动到底部
     useEffect(() => {
+        // 当 messages 更新后，调用 postUserContent
+        if (messages.length > 0 && messages[messages.length - 2].sender === 'user') {
+            setIsLoading(true); // 禁用输入框和按钮
+            postUserContent(messages);
+            setIsLoading(false); // 恢复输入框和按钮
+
+        }
         scrollToBottom();
     }, [messages]);
+
+    
+    
 
     const handleSend = () => {
         if (inputValue.trim() === '' || isLoading) return;
 
-        // 添加用户消息
-        setMessages([...messages, { text: inputValue, sender: 'user' }]);
+        // 添加用户消息，并确保更新状态基于最新的 messages
+        setMessages((prevMessages) => {
+            const updatedMessages = [...prevMessages, { text: inputValue, sender: 'user' }];
+            // 添加“生成中....”消息
+            updatedMessages.push({ text: 'generating....', sender: 'ai', isTyping: true });
+            return updatedMessages;
+        });
+
         setInputValue('');
-        setIsLoading(true); // 禁用输入框和按钮
-
-        // 添加“生成中....”消息
-        setMessages((prevMessages) => [
-            ...prevMessages,
-            { text: '生成中....', sender: 'ai', isTyping: true },
-        ]);
-
-        // 模拟 AI 回复
-        setTimeout(() => {
-            setMessages((prevMessages) => [
-                ...prevMessages.filter((msg) => !msg.isTyping), // 移除“生成中....”消息
-                { text: `AI: ${inputValue}`, sender: 'ai' },
-            ]);
-            setIsLoading(false); // 恢复输入框和按钮
-        }, 2000); // 模拟 2 秒延迟
     };
+
+    
 
     return (
         <div className="chat-container">

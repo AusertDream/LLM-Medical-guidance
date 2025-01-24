@@ -27,23 +27,30 @@ from peft import (
     get_peft_model_state_dict,
     prepare_model_for_kbit_training
 )
-
-
-
-
-
+from datasets import Dataset
 
 
 def startTrain(model, tokenizer, modelConfig):
-
-
+    wandb.init(project='MedicalGuidance',
+               settings=wandb.Settings(start_method='thread', console='off'),
+               mode="online",
+               name="MedQA",
+               config={
+                   'learning_rate': 3e-4,
+                   'architecture': 'Llama3.2-3B',
+                   'dataset': 'random',
+                   'batch_size': 8,
+                   "epoch": 100,
+                   "data_num": 10000
+               })
+    
     # 创建指定的输出目录
     os.makedirs(modelConfig["output_dir"], exist_ok=True)
     os.makedirs(modelConfig["ckpt_dir"], exist_ok=True)
 
     # 根据 from_ckpt 标志，从 checkpoint 加载模型权重
     if modelConfig["from_ckpt"]:
-        model = PeftModel.from_pretrained(model, modelConfig["ckpt_name"])
+        model = PeftModel.from_pretrained(modelConfig["output_dir"])
 
 
     # 使用 LoraConfig 配置 LORA 模型
@@ -60,26 +67,24 @@ def startTrain(model, tokenizer, modelConfig):
     # 将 tokenizer 的填充 token 设置为 0
     tokenizer.pad_token_id = 0
 
-    # 加载并处理训练数据
-    with open(modelConfig.dataset_dir, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    data = load_dataset("json", data_files=modelConfig["dataset_dir"])["train"]
 
     def generate_training_data(data_point):
         """
-        将输入和输出文本转换为模型可读取的 tokens。
-        参数：
-        - data_point: 包含 "instruction"、"input" 和 "output" 字段的字典。
         返回：
         - 包含token IDs、labels和attention mask的字典。
         """
-
+    # When users describe their symptoms to you, your task is to accurately determine which hospital department they should visit based on the symptoms provided. If the information given by the user is insufficient to identify the appropriate department, you should ask follow-up questions to gather more detailed symptom information. Your ultimate goal is to help users determine the most suitable medical department for their condition.
+    
         prompt = f"""\
     [INST] <<SYS>>
-    You are a professional and friendly AI-powered medical triage assistant. When users describe their symptoms to you, your task is to accurately determine which hospital department they should visit based on the symptoms provided. If the information given by the user is insufficient to identify the appropriate department, you should ask follow-up questions to gather more detailed symptom information. Your ultimate goal is to help users determine the most suitable medical department for their condition.
+    You are a professional and friendly AI-powered medical triage assistant. 
     <</SYS>>
-    
-    {data_point["instruction"]} 
-    {data_point["input"]}
+    answer the question:
+    {data_point["question"]}
+    and the options are:
+    {data_point["options"]}
+    Choose one.
     [/INST]"""
 
         # 计算用户提示词的 token 数量
@@ -89,19 +94,18 @@ def startTrain(model, tokenizer, modelConfig):
                         prompt,
                         truncation=True,
                         max_length=modelConfig["CUTOFF_LEN"] + 1,
-                        padding="max_length",
+                        padding=False,
                     )["input_ids"]
                 ) - 1
         )
 
         # 将完整的输入和输出转换为 tokens
         full_tokens = tokenizer(
-            prompt + " " + data_point["output"] + "</s>",
+            prompt + " " + "the answer is:" + data_point["answer"] + "</s>",
             truncation=True,
             max_length=modelConfig["CUTOFF_LEN"] + 1,
             padding="max_length",
             )["input_ids"][:-1]
-
         return {
             "input_ids": full_tokens,
             "labels": [-100] * len_user_prompt_tokens + full_tokens[len_user_prompt_tokens:],
@@ -109,44 +113,34 @@ def startTrain(model, tokenizer, modelConfig):
         }
 
 
-    # 使用 Transformers Trainer 进行模型训练
-    trainer = transformers.Trainer(
-        model=model,
-        train_dataset=data,
-        args=transformers.TrainingArguments(
-            per_device_train_batch_size=modelConfig["batch_size"],
-            warmup_steps=50,
-            num_train_epochs=modelConfig["num_epoch"],
-            learning_rate=modelConfig["LEARNING_RATE"],
-            logging_steps=modelConfig["logging_steps"],
-            save_strategy="steps",
-            save_steps=modelConfig["save_steps"],
-            output_dir=modelConfig["ckpt_dir"],
-            save_total_limit=modelConfig["save_total_limit"],
-        ),
-        data_collator=transformers.DataCollatorForLanguageModeling(tokenizer, mlm=False),
-    )
 
-    # 禁用模型的缓存功能
-    model.config.use_cache = False
-
-
-    # 开始模型训练
-    trainer.train()
-
+    data = data.map(generate_training_data, remove_columns=["question", "options", "answer", "meta_info", "answer_idx"])
+    
+    # train model
+    optimizer = torch.optim.AdamW(model.parameters(), lr=modelConfig["LEARNING_RATE"])
+    model.to(modelConfig["device_map"])
+    for epoch in range(modelConfig["num_epoch"]):
+        model.train()
+        lossnumber = 0
+        for i in tqdm(range(0, len(data), modelConfig["BATCH_SIZE"]), desc=f"Epoch {epoch}:"):
+            optimizer.zero_grad()
+            batch = data[i: i + modelConfig["BATCH_SIZE"]]
+            input_ids = torch.tensor(batch["input_ids"]).to(modelConfig["device_map"])
+            attention_mask = torch.tensor(batch["attention_mask"]).to(modelConfig["device_map"])
+            labels = torch.tensor(batch["labels"]).to(modelConfig["device_map"])
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids)
+            loss = outputs.loss
+            lossnumber += loss.item()
+            wandb.log({"loss_perstep": loss.item()})
+            loss.backward()
+            optimizer.step()
+        
+        wandb.log({"loss_perepoch": lossnumber/((len(data)+modelConfig["BATCH_SIZE"] - 1)//modelConfig["BATCH_SIZE"])})
+            
+    if os.path.exists(modelConfig["output_dir"])==False:
+        os.mkdir(modelConfig["output_dir"])
     # 将训练好的模型保存到指定目录
     model.save_pretrained(modelConfig["output_dir"])
-
-def train():
-    wandb.init(project='test',
-               settings=wandb.Settings(start_method='thread', console='off'),
-               name="sleep",
-               config={
-                   'learning_rate': 0.01,
-                   'architecture': 'CNN',
-                   'dataset': 'random',
-                   'batch_size': 32,
-                   "epoch": 100
-               })
-
     wandb.finish()
+
+    

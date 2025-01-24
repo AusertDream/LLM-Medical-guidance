@@ -28,6 +28,7 @@ author: Tianyi Jiang
 """
 
 if __name__ == '__main__':
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
     with open("./modelConfig.json", "r") as f:
         modelConfig = json.load(f)
 
