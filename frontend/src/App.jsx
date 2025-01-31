@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Input, Button, Avatar, List } from 'antd';
 import { UserOutlined, RobotOutlined } from '@ant-design/icons';
 import './App.css';
+import { Content } from 'antd/es/layout/layout';
 
 const { TextArea } = Input;
 
@@ -16,10 +17,11 @@ const App = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    const postUserContent = async (userMessages) => {
-        const url = 'http://localhost:10000/generate'; // Flask API 地址
+    const postUserContent = async (userMessages, prompt) => {
+        const url = 'http://localhost:10001/generate'; // Flask API 地址
         const userMessage = {
-            prompt: userMessages
+            chatHistory: userMessages,
+            userPrompt: prompt
         }
         try {
             const response = await fetch(url, {
@@ -39,7 +41,7 @@ const App = () => {
             const awer = data['generated_text'];
             setMessages((prevMessages) => [
                 ...prevMessages.filter((msg) => !msg.isTyping), 
-                { text: `AI: ${awer}`, sender: 'ai' },
+                { text: `${awer}`, sender: 'ai' },
             ]);
             console.log(awer); // 打印响应数据
         } catch (error) {
@@ -58,13 +60,6 @@ const App = () => {
 
     // 监听 messages 的变化，每次更新时滚动到底部
     useEffect(() => {
-        // 当 messages 更新后，调用 postUserContent
-        if (messages.length > 0 && messages[messages.length - 2].sender === 'user') {
-            setIsLoading(true); // 禁用输入框和按钮
-            postUserContent(messages);
-            setIsLoading(false); // 恢复输入框和按钮
-
-        }
         scrollToBottom();
     }, [messages]);
 
@@ -81,7 +76,9 @@ const App = () => {
             updatedMessages.push({ text: 'generating....', sender: 'ai', isTyping: true });
             return updatedMessages;
         });
-
+        setIsLoading(true); // 禁用输入框和按钮
+        postUserContent(messages, inputValue);
+        setIsLoading(false); // 恢复输入框和按钮
         setInputValue('');
     };
 

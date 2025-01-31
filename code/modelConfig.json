@@ -1,13 +1,13 @@
 {
     "num_train_data":1040,
-    "output_dir": "./model/finetunedd",
+    "output_dir": "./model/generatedQA",
     "ckpt_dir": "./model/checkpoint",
     "num_epoch": 20,
     "LEARNING_RATE": 3e-4,
     "cache_dir": "./cache",
     "from_ckpt": 0,
     "ckpt_name": "None",
-    "dataset_dir": "./data/train.jsonl",
+    "dataset_dir": "./data/generatedQA.jsonl",
     "logging_steps": 20,
     "save_steps": 65,
     "save_total_limit": 3,
@@ -18,10 +18,11 @@
     "LORA_ALPHA": 16,
     "LORA_DROPOUT": 0.05,
     "VAL_SET_SIZE": 0,
-    "TARGET_MODULES": ["q_proj", "up_proj", "o_proj", "k_proj", "down_proj", "gate_proj", "v_proj"],
+    "TARGET_MODULES": ["q_proj", "v_proj"],
     "device_map": "cuda:1",
     "model_name": "./model/source",
-    "version": "MedQA",
+    "version": "generatedQA",
     "gradient_accumulation_steps": 1,
-    "max_len": 256
+    "evaluate_max_len": 128,
+    "evaluate_model": "./model/generatedQA"
   }

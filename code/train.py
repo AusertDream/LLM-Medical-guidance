@@ -34,13 +34,13 @@ def startTrain(model, tokenizer, modelConfig):
     wandb.init(project='MedicalGuidance',
                settings=wandb.Settings(start_method='thread', console='off'),
                mode="online",
-               name="MedQA",
+               name="generatedQA_debug1",
                config={
                    'learning_rate': 3e-4,
                    'architecture': 'Llama3.2-3B',
-                   'dataset': 'random',
-                   'batch_size': 8,
-                   "epoch": 100,
+                   'dataset': 'generatedQA',
+                   'batch_size': 4,
+                   "epoch": 20,
                    "data_num": 10000
                })
     
@@ -80,11 +80,10 @@ def startTrain(model, tokenizer, modelConfig):
     [INST] <<SYS>>
     You are a professional and friendly AI-powered medical triage assistant. 
     <</SYS>>
-    answer the question:
-    {data_point["question"]}
-    and the options are:
-    {data_point["options"]}
-    Choose one.
+    Here are some symptoms provided by the patient and the corresponding medical department they should visit in the form of dialog.
+    The dialogs are in the list. Per dialog is seperated by a ','.
+    learn it.
+    {data_point["dialog"]}
     [/INST]"""
 
         # 计算用户提示词的 token 数量
@@ -101,11 +100,12 @@ def startTrain(model, tokenizer, modelConfig):
 
         # 将完整的输入和输出转换为 tokens
         full_tokens = tokenizer(
-            prompt + " " + "the answer is:" + data_point["answer"] + "</s>",
+            prompt + "</s>",
             truncation=True,
             max_length=modelConfig["CUTOFF_LEN"] + 1,
             padding="max_length",
             )["input_ids"][:-1]
+        
         return {
             "input_ids": full_tokens,
             "labels": [-100] * len_user_prompt_tokens + full_tokens[len_user_prompt_tokens:],
@@ -114,7 +114,7 @@ def startTrain(model, tokenizer, modelConfig):
 
 
 
-    data = data.map(generate_training_data, remove_columns=["question", "options", "answer", "meta_info", "answer_idx"])
+    data = data.map(generate_training_data, remove_columns=["dialog"])
     
     # train model
     optimizer = torch.optim.AdamW(model.parameters(), lr=modelConfig["LEARNING_RATE"])

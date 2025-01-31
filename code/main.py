@@ -37,3 +37,5 @@ if __name__ == '__main__':
 
     # start train
     train.startTrain(model, tokenizer, modelConfig)
+
+    print("Training finished.")
