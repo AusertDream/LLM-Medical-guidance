@@ -1,19 +1,19 @@
 {
     "num_train_data":1040,
-    "output_dir": "./model/generatedQA",
+    "output_dir": "./model/MedQA",
     "ckpt_dir": "./model/checkpoint",
     "num_epoch": 20,
     "LEARNING_RATE": 3e-4,
     "cache_dir": "./cache",
     "from_ckpt": 0,
     "ckpt_name": "None",
-    "dataset_dir": "./data/generatedQA.jsonl",
+    "dataset_dir": "./data/train.jsonl",
     "logging_steps": 20,
     "save_steps": 65,
     "save_total_limit": 3,
     "report_to": "None",
-    "BATCH_SIZE": 8,
-    "CUTOFF_LEN": 256,
+    "BATCH_SIZE": 16,
+    "CUTOFF_LEN": 128,
     "LORA_R": 8,
     "LORA_ALPHA": 16,
     "LORA_DROPOUT": 0.05,
@@ -24,5 +24,5 @@
     "version": "generatedQA",
     "gradient_accumulation_steps": 1,
     "evaluate_max_len": 128,
-    "evaluate_model": "./model/generatedQA"
+    "evaluate_model": "./model/source"
   }

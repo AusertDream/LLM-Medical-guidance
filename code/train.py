@@ -38,7 +38,7 @@ def startTrain(model, tokenizer, modelConfig):
                config={
                    'learning_rate': 3e-4,
                    'architecture': 'Llama3.2-3B',
-                   'dataset': 'generatedQA',
+                   'dataset': 'MedQA',
                    'batch_size': 4,
                    "epoch": 20,
                    "data_num": 10000
@@ -80,10 +80,10 @@ def startTrain(model, tokenizer, modelConfig):
     [INST] <<SYS>>
     You are a professional and friendly AI-powered medical triage assistant. 
     <</SYS>>
-    Here are some symptoms provided by the patient and the corresponding medical department they should visit in the form of dialog.
-    The dialogs are in the list. Per dialog is seperated by a ','.
-    learn it.
-    {data_point["dialog"]}
+    Here is a MedQA. Learn it.
+    question: {data_point["question"]}
+    options are: {data_point["options"]}
+    answer is: {data_point["answer"]}
     [/INST]"""
 
         # 计算用户提示词的 token 数量
@@ -114,7 +114,7 @@ def startTrain(model, tokenizer, modelConfig):
 
 
 
-    data = data.map(generate_training_data, remove_columns=["dialog"])
+    data = data.map(generate_training_data, remove_columns=["question", "options", "answer"])
     
     # train model
     optimizer = torch.optim.AdamW(model.parameters(), lr=modelConfig["LEARNING_RATE"])

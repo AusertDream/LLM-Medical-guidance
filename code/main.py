@@ -23,7 +23,7 @@ import train
 
 """
 model: Llama3.2-3B-instruct
-data source: github
+data source: github and generated from deepseek
 author: Tianyi Jiang
 """
 
