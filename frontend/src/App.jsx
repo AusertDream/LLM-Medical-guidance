@@ -18,7 +18,7 @@ const App = () => {
     };
 
     const postUserContent = async (userMessages, prompt) => {
-        const url = 'http://localhost:10001/generate'; // Flask API 地址
+        const url = 'http://localhost:10000/generate'; // Flask API 地址
         const userMessage = {
             chatHistory: userMessages,
             userPrompt: prompt

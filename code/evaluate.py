@@ -45,8 +45,8 @@ def evaluate(model, tokenizer, modelConfig, instruction, verbose=False):
     # 设置模型推理时的解码参数
     generation_config = GenerationConfig(
         do_sample=True,
-        temperature=0.1,
-        num_beams=1,
+        temperature=0.5,
+        num_beams=3,
         top_p=0.3,
         no_repeat_ngram_size=3,
         pad_token_id=0,
@@ -64,6 +64,7 @@ def evaluate(model, tokenizer, modelConfig, instruction, verbose=False):
         return_dict_in_generate=True,
         output_scores=True,
         max_new_tokens=modelConfig["evaluate_max_len"],
+        early_stopping=True
     )
     
     # 解码并打印生成的回复
