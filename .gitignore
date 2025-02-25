@@ -2,3 +2,7 @@ RawData/
 code/wandb/
 code/model/
 code/nohup.out
+code/temp/
+code/RAGEmbedding/
+code/chroma_db_1024/
+code/data/books/
