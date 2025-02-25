@@ -34,12 +34,12 @@ def startTrain(model, tokenizer, modelConfig):
     wandb.init(project='MedicalGuidance',
                settings=wandb.Settings(start_method='thread', console='off'),
                mode="online",
-               name="generatedQA_debug1",
+               name="generatedQA_modified",
                config={
                    'learning_rate': 3e-4,
                    'architecture': 'Llama3.2-3B',
-                   'dataset': 'MedQA',
-                   'batch_size': 4,
+                   'dataset': 'generatedQA',
+                   'batch_size': 16,
                    "epoch": 20,
                    "data_num": 10000
                })
@@ -80,11 +80,9 @@ def startTrain(model, tokenizer, modelConfig):
     [INST] <<SYS>>
     You are a professional and friendly AI-powered medical triage assistant. 
     <</SYS>>
-    Here is a MedQA. Learn it.
-    question: {data_point["question"]}
-    options are: {data_point["options"]}
-    answer is: {data_point["answer"]}
-    [/INST]"""
+    [/INST]
+    {data_point["dialog"]}
+    """
 
         # 计算用户提示词的 token 数量
         len_user_prompt_tokens = (
@@ -97,7 +95,18 @@ def startTrain(model, tokenizer, modelConfig):
                     )["input_ids"]
                 ) - 1
         )
-
+        prompt_token = tokenizer(
+                        prompt,
+                        truncation=True,
+                        max_length=modelConfig["CUTOFF_LEN"] + 1,
+                        padding="max_length",
+                    )
+        label_token = tokenizer(
+                        prompt,
+                        truncation=True,
+                        max_length=modelConfig["CUTOFF_LEN"] + 1,
+                        padding="max_length",
+                    )
         # 将完整的输入和输出转换为 tokens
         full_tokens = tokenizer(
             prompt + "</s>",
@@ -107,17 +116,18 @@ def startTrain(model, tokenizer, modelConfig):
             )["input_ids"][:-1]
         
         return {
-            "input_ids": full_tokens,
-            "labels": [-100] * len_user_prompt_tokens + full_tokens[len_user_prompt_tokens:],
-            "attention_mask": [1] * len(full_tokens),
+            "input_ids": prompt_token["input_ids"],
+            "labels": label_token["input_ids"],
+            "attention_mask": prompt_token["attention_mask"],
         }
 
 
 
-    data = data.map(generate_training_data, remove_columns=["question", "options", "answer"])
+    data = data.map(generate_training_data, remove_columns=["dialog"])
     
     # train model
     optimizer = torch.optim.AdamW(model.parameters(), lr=modelConfig["LEARNING_RATE"])
+    criterion  = nn.CrossEntropyLoss()
     model.to(modelConfig["device_map"])
     for epoch in range(modelConfig["num_epoch"]):
         model.train()
@@ -128,8 +138,9 @@ def startTrain(model, tokenizer, modelConfig):
             input_ids = torch.tensor(batch["input_ids"]).to(modelConfig["device_map"])
             attention_mask = torch.tensor(batch["attention_mask"]).to(modelConfig["device_map"])
             labels = torch.tensor(batch["labels"]).to(modelConfig["device_map"])
-            outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids)
-            loss = outputs.loss
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+            logits = outputs.logits
+            loss = criterion(logits.view(-1, logits.size(-1)), labels.view(-1))
             lossnumber += loss.item()
             wandb.log({"loss_perstep": loss.item()})
             loss.backward()
