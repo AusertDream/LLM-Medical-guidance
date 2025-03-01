@@ -1,14 +1,17 @@
 import chromadb
 from chromadb.utils import embedding_functions
 from sentence_transformers import SentenceTransformer
+import json
 
+with open("./modelConfig.json", "r") as f:
+        modelConfig = json.load(f)
 
 
 model_name = './RAGEmbedding/m3e-base'
 embeddings = SentenceTransformer(model_name)
 sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
     model_name=model_name,
-    device="cuda",
+    device=modelConfig["device_map"],
     normalize_embeddings=True
 )
 db_path = "./chroma_db_1024"  # 设置持久化数据库的路径

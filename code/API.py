@@ -8,18 +8,31 @@ from flask_cors import CORS
 import evaluate
 import sys
 from RAGInterface import get_context
+from transformers import pipeline
+from transformers import GenerationConfig
 
 with open("./modelConfig.json", "r") as f:
         modelConfig = json.load(f)
 
-model = AutoModelForCausalLM.from_pretrained(modelConfig["model_name"])
-if modelConfig["evaluate_model"] != './model/source':
-    print("load model:", modelConfig["evaluate_model"])
-    model = PeftModel.from_pretrained(model, modelConfig["evaluate_model"]).to(modelConfig["device_map"])
-else:
-    print("load model:", modelConfig["model_name"])
-    model.to(modelConfig["device_map"])
+# model = AutoModelForCausalLM.from_pretrained(modelConfig["model_name"])
+# if modelConfig["evaluate_model"] != './model/source':
+#     print("load model:", modelConfig["evaluate_model"])
+#     model = PeftModel.from_pretrained(model, modelConfig["evaluate_model"]).to(modelConfig["device_map"])
+# else:
+#     print("load model:", modelConfig["model_name"])
+#     model.to(modelConfig["device_map"])
 tokenizer = AutoTokenizer.from_pretrained(modelConfig["model_name"])
+tokenizer.pad_token = tokenizer.eos_token
+generation_config = GenerationConfig(
+        do_sample=True,
+        temperature=0.8,
+        num_beams=3,
+        top_p=0.3,
+        no_repeat_ngram_size=3,
+        pad_token_id=0,
+        max_new_tokens=256,
+)
+
 
 app = Flask(__name__)   
 
@@ -36,35 +49,15 @@ def get_system_format(content):
     return {'role':'system', 'content':content}
 
 
-def build_prompt(history, new_user_input):
-    """
-    将对话历史 + 新输入转换为 LLaMA 要求的对话格式
-    输入格式示例：
-    history = [
-        {'role':'system', 'content':'...'},
-        {'role':'user', 'content':'...'},
-        {'role':'assistant', 'content':'...'},
-        ...
-    ]
-    """
-    prompt = ""
-    
-    # 处理系统指令
-    for msg in history:
-        if msg['role'] == 'system':
-            prompt += f"<<SYS>>\n{msg['content']}\n<</SYS>>\n\n"
-            break  # 通常系统指令只保留第一条
-    
-    # 处理多轮对话
-    for msg in history[1:]:  # 跳过系统指令（已单独处理）
-        if msg['role'] == 'user':
-            prompt += f"[INST] {msg['content']} [/INST]"
-        elif msg['role'] == 'assistant':
-            prompt += f" {msg['content']} </s><s>"  # 添加对话终止符
-    
-    # 添加最新用户输入
-    prompt += f"[INST] {new_user_input} [/INST]"
-    return prompt
+
+
+def print_gpu_memory():
+    print("\n===== GPU 显存监控 =====")
+    print(f"当前显存分配量: {torch.cuda.memory_allocated()/1024**3:.2f} GB")
+    print(f"最大显存分配量: {torch.cuda.max_memory_allocated()/1024**3:.2f} GB")
+    print(f"当前显存保留量: {torch.cuda.memory_reserved()/1024**3:.2f} GB")
+    print(f"最大显存保留量: {torch.cuda.max_memory_reserved()/1024**3:.2f} GB")
+    print("=======================\n")
 
 
 def refactor_history(chat_history):
@@ -87,7 +80,7 @@ def refactor_history(chat_history):
 
 def refactor_prompt(prompt, RAGon=False):
     if RAGon == False:
-        return
+        return prompt
     else:
         res = """【相关知识】
         {context}
@@ -96,7 +89,6 @@ def refactor_prompt(prompt, RAGon=False):
         
         return res
 
-     
 
 
 @app.route('/generate', methods=['POST'])
@@ -107,12 +99,12 @@ def generate():
 
     chat_history = json_get["chatHistory"]
     prompt = json_get["userPrompt"]
-    chat_history = refactor_history(chat_history)
-    prompt = refactor_prompt(prompt, RAGon=True)
-    input = build_prompt(chat_history, prompt)
+    history = refactor_history(chat_history)
+    prompt = refactor_prompt(prompt, RAGon=False)
+    history.append(get_user_format(prompt))
     print("start generate the answer...")
-    model_answer = evaluate.evaluate(model, tokenizer, modelConfig, input)
-    print("answer get!:", model_answer)    
-    return jsonify({'generated_text': model_answer})
+    model_answer = evaluate.inference_from_transforms(history, generation_config, tokenizer)
+    # print("answer get!:", model_answer)
+    return jsonify({'generated_text': model_answer["content"]})
 
 app.run(host='localhost', port=10000)
