@@ -6,3 +6,4 @@ code/temp/
 code/RAGEmbedding/
 code/chroma_db_1024/
 code/data/books/
+code/__pycache__
