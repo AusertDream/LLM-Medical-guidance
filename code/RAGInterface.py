@@ -29,5 +29,7 @@ def get_context(prompt, n_results=10):
         "context": query_answer["documents"],
         "metadata": query_answer["metadatas"]
     }
+    print("RAG res get!")
     return res
+
 

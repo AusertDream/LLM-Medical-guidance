@@ -23,6 +23,6 @@
     "model_name": "./model/source",
     "version": "generatedQA",
     "gradient_accumulation_steps": 1,
-    "evaluate_max_len": 2048,
+    "evaluate_max_len": 4096,
     "evaluate_model": "./model/source"
   }

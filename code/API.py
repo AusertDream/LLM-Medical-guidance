@@ -7,6 +7,7 @@ from peft import PeftModel
 from flask_cors import CORS
 import evaluate
 import sys
+from RAGInterface import get_context
 
 with open("./modelConfig.json", "r") as f:
         modelConfig = json.load(f)
@@ -17,6 +18,7 @@ if modelConfig["evaluate_model"] != './model/source':
     model = PeftModel.from_pretrained(model, modelConfig["evaluate_model"]).to(modelConfig["device_map"])
 else:
     print("load model:", modelConfig["model_name"])
+    model.to(modelConfig["device_map"])
 tokenizer = AutoTokenizer.from_pretrained(modelConfig["model_name"])
 
 app = Flask(__name__)   
@@ -24,47 +26,76 @@ app = Flask(__name__)
 # CORS(app, origins=["http://localhost:5173"])
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-def add_system_message(prompt, msg):
-     return prompt + f"<|start_header_id|>system<|end_header_id|>\n {msg}"
+def get_assistant_format(content):
+    return {'role':'assistant', 'content':content}
 
-def add_user_message(prompt, msg):
-    return prompt + f"<|start_header_id|>user<|end_header_id|>\n User message: \"{msg}\" Tell me which hospital department should I go"
+def get_user_format(content):
+    return {'role':'user', 'content':content}
 
-def add_assistant_message(prompt, msg):
-     return prompt + f"<|start_header_id|>assistant<|end_header_id|>\n Assistant message: \"{msg}\""
+def get_system_format(content):
+    return {'role':'system', 'content':content}
 
 
-def add_end_token(prompt):
-     return prompt + "<|eot_id|>"
+def build_prompt(history, new_user_input):
+    """
+    将对话历史 + 新输入转换为 LLaMA 要求的对话格式
+    输入格式示例：
+    history = [
+        {'role':'system', 'content':'...'},
+        {'role':'user', 'content':'...'},
+        {'role':'assistant', 'content':'...'},
+        ...
+    ]
+    """
+    prompt = ""
+    
+    # 处理系统指令
+    for msg in history:
+        if msg['role'] == 'system':
+            prompt += f"<<SYS>>\n{msg['content']}\n<</SYS>>\n\n"
+            break  # 通常系统指令只保留第一条
+    
+    # 处理多轮对话
+    for msg in history[1:]:  # 跳过系统指令（已单独处理）
+        if msg['role'] == 'user':
+            prompt += f"[INST] {msg['content']} [/INST]"
+        elif msg['role'] == 'assistant':
+            prompt += f" {msg['content']} </s><s>"  # 添加对话终止符
+    
+    # 添加最新用户输入
+    prompt += f"[INST] {new_user_input} [/INST]"
+    return prompt
 
-def add_start_token(prompt):
-     return prompt + "<|begin_of_text|>"
 
-def add_assistant_end_message(prompt):
-     return prompt + f"<|start_header_id|>assistant<|end_header_id|>"
-
-def get_instruction(chat_history, user_prompt):
-    chat_messages = ""
-    sys_message = "You are a helpful assistant in the hospital. You are helping users find the right department to go to."
-    chat_messages = add_start_token(chat_messages)
-    chat_messages = add_system_message(chat_messages, sys_message)
-    chat_messages = add_end_token(chat_messages)
-    # chat_messages ="""
-    # 你是一个乐于助人的医院智能导诊助手，你的任务是帮助用户找到他们应该去医院挂的科。填充Assistant:后面的内容。
-    # """
-    for message in chat_history:
-        if message["sender"] == "ai":
-            chat_messages = add_start_token(chat_messages)
-            chat_messages = add_assistant_message(chat_messages, message['text'])
-            chat_messages = add_end_token(chat_messages)
+def refactor_history(chat_history):
+    history = []
+    instruction = '现在你要扮演一个医院中导诊台的护士，你的职责是根据患者的病情描述，告诉他们应该挂什么科室。如果病情描述较少，可以继续询问其他症状。要求对话尽量简短。最终必须且只给出一个科室。'
+    sys_commd = get_system_format(instruction)
+    history.append(sys_commd)
+    for chat in chat_history:
+        if chat['sender'] == 'ai':
+            history.append(get_assistant_format(chat['text']))
+        elif chat['sender'] == 'user':
+            history.append(get_user_format(chat['text']))
         else:
-            chat_messages = add_start_token(chat_messages)
-            chat_messages = add_user_message(chat_messages, message['text'])
-            chat_messages = add_end_token(chat_messages)
+            print("history has unknown role! Whatsup?")
+    
+    return history
+            
 
-    chat_messages = add_start_token(chat_messages)
-    chat_messages = add_assistant_end_message(chat_messages)
-    return chat_messages
+    
+
+def refactor_prompt(prompt, RAGon=False):
+    if RAGon == False:
+        return
+    else:
+        res = """【相关知识】
+        {context}
+        【用户问题】
+        {query}""".format(context=get_context(prompt, n_results=4), query=prompt)
+        
+        return res
+
      
 
 
@@ -76,8 +107,12 @@ def generate():
 
     chat_history = json_get["chatHistory"]
     prompt = json_get["userPrompt"]
-    instruction = get_instruction(chat_history, prompt)
-    model_answer = evaluate.evaluate(model, tokenizer, modelConfig, instruction)
+    chat_history = refactor_history(chat_history)
+    prompt = refactor_prompt(prompt, RAGon=True)
+    input = build_prompt(chat_history, prompt)
+    print("start generate the answer...")
+    model_answer = evaluate.evaluate(model, tokenizer, modelConfig, input)
+    print("answer get!:", model_answer)    
     return jsonify({'generated_text': model_answer})
 
 app.run(host='localhost', port=10000)

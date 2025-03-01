@@ -28,12 +28,13 @@ from peft import (
     prepare_model_for_kbit_training
 )
 
-def evaluate(model, tokenizer, modelConfig, instruction, verbose=False):
+def evaluate(model, tokenizer, modelConfig, prompt, verbose=False):
     """
     获取模型在给定输入下的生成结果。
 
     参数：
-    - instruction: 描述任务的字符串。
+    - query: 用户当前最新prompt
+    - chat_history: 聊天记录(不包含RAG内容)
     - generation_config: 模型生成配置。
     - max_len: 最大生成长度。
     - verbose: 是否打印生成结果。
@@ -41,25 +42,24 @@ def evaluate(model, tokenizer, modelConfig, instruction, verbose=False):
     返回：
     - output: 模型生成的文本。
     """
+    model.to()
     model.eval()
     # 设置模型推理时的解码参数
     generation_config = GenerationConfig(
         do_sample=True,
-        temperature=0.5,
+        temperature=0.8,
         num_beams=3,
         top_p=0.3,
         no_repeat_ngram_size=3,
         pad_token_id=0,
     )
-    # 构建完整的输入提示词
-    prompt = instruction
+    
     # 将提示词转换为模型所需的 token 格式
-    inputs = tokenizer(prompt, return_tensors="pt")
-    input_ids = inputs["input_ids"].to(model.device)
-
-    # 使用模型生成回复
+    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    # 回答
+    print("start generating")
     generation_output = model.generate(
-        input_ids=input_ids,
+        input_ids=inputs["input_ids"],
         generation_config=generation_config,
         return_dict_in_generate=True,
         output_scores=True,
@@ -67,7 +67,9 @@ def evaluate(model, tokenizer, modelConfig, instruction, verbose=False):
         early_stopping=True
     )
     
+    # 解码时跳过历史
+    response_start = inputs.input_ids.shape[-1]  # 历史部分的 token 长度
     # 解码并打印生成的回复
-    output = tokenizer.decode(generation_output.sequences[0], skip_special_tokens=True)
+    full_output = tokenizer.decode(generation_output.sequences[0][response_start:], skip_special_tokens=True)
 
-    return output
+    return full_output.split("</s>")[0].strip()
