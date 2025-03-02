@@ -2,13 +2,15 @@ import chromadb
 from chromadb.utils import embedding_functions
 from sentence_transformers import SentenceTransformer
 import json
+from random import sample
+
 
 with open("./modelConfig.json", "r") as f:
         modelConfig = json.load(f)
 
 
 model_name = './RAGEmbedding/m3e-base'
-embeddings = SentenceTransformer(model_name)
+embeddings = SentenceTransformer(model_name, device=modelConfig["device_map"])  
 sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
     model_name=model_name,
     device=modelConfig["device_map"],
@@ -34,5 +36,12 @@ def get_context(prompt, n_results=10):
     }
     print("RAG res get!")
     return res
+
+
+def random_sample(numbers):
+    all_ids = db.get(include=[])["ids"]
+    random_ids = sample(all_ids, numbers)
+    random_data = db.get(ids=random_ids, include=["documents"])
+    return random_data["documents"]
 
 
