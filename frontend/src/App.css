@@ -37,7 +37,14 @@ body, html {
 
 .chat-bubble.ai {
   background-color: #e6f7ff;
-  align-self: flex-start;
+  align-items: flex-start !important; /* 保持头像顶部对齐 */
+}
+
+.chat-bubble.ai .ant-avatar {
+  flex-shrink: 0; /* 防止头像被压缩 */
+  height: 32px !important; /* 固定头像高度 */
+  width: 32px !important; /* 固定头像宽度 */
+  line-height: 32px !important; /* 保持头像内容居中 */
 }
 
 .chat-bubble.user {
@@ -46,7 +53,11 @@ body, html {
 }
 
 .bubble-content {
-  margin: 0 10px;
+  white-space: pre-wrap; /* 保持换行但防止溢出 */
+  word-break: break-word; /* 允许长单词换行 */
+  min-height: 32px; /* 保持最小高度与头像一致 */
+  display: flex;
+  align-items: center;
 }
 
 /* “生成中....”动画效果 */

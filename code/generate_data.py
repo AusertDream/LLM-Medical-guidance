@@ -21,10 +21,16 @@ def extract_dialogue(text: str):
 
 
 
-numbers = 3
+numbers = 1000
 client = OpenAI(api_key="sk-c6abf11ab86f4bb6b38ef96c234ca89b", base_url="https://api.deepseek.com")
 random_context = RAGInterface.random_sample(numbers)
 sharegpt_data = []
+
+json_file = "dialogues.json"
+# 1. 先写入一个 '['，表示 JSON 数组的开始
+with open(json_file, "w", encoding="utf-8") as f:
+    f.write("[\n")
+
 for i in tqdm(range(numbers), desc="Generating data"):
     context = random_context[i]
     response = client.chat.completions.create(
@@ -51,13 +57,31 @@ for i in tqdm(range(numbers), desc="Generating data"):
     )
 
     answer = response.choices[0].message.content
-    answer = extract_dialogue(answer)
-    sharegpt_data.append({"conversations": answer, "system": "现在你要扮演一个医院中导诊台的护士，你的职责是根据患者的病情描述，告诉他们应该挂什么科室。如果病情描述较少，可以继续询问其他症状。要求对话尽量简短。最终必须给出具体的1个或者2个科室。给出科室之后，对话结束。"})
+    try:
+        answer = extract_dialogue(answer)
+    except:
+        continue
+    
+    single_data = {
+        "conversations": answer,
+        "system": "现在你要扮演一个医院中导诊台的护士，你的职责是根据患者的病情描述，告诉他们应该挂什么科室。如果病情描述较少，可以继续询问其他症状。最终必须给出具体的1个或者2个科室。给出科室之后，对话结束。"
+    }
+    # 2. 将该对象以 JSON 形式追加到文件末尾
+    #    如果不是第一个，就在前面写一个逗号作为分隔
+    with open(json_file, "a", encoding="utf-8") as f:
+        if i > 0:
+            f.write(",\n")
+        json.dump(single_data, f, ensure_ascii=False, indent=4)
+    # sharegpt_data.append({"conversations": answer, "system": "现在你要扮演一个医院中导诊台的护士，你的职责是根据患者的病情描述，告诉他们应该挂什么科室。如果病情描述较少，可以继续询问其他症状。要求对话尽量简短。最终必须给出具体的1个或者2个科室。给出科室之后，对话结束。"})
 
-print("Data generated, start to write to disk")
-# 写入 JSON 文件
-with open("dialogues.json", "w", encoding="utf-8") as f:
-    json.dump(sharegpt_data, f, ensure_ascii=False, indent=4)
+# print("Data generated, start to write to disk")
+# # 写入 JSON 文件
+# with open("dialogues.json", "w", encoding="utf-8") as f:
+#     json.dump(sharegpt_data, f, ensure_ascii=False, indent=4)
+
+# 3. 在全部完成后，写一个 ']' 标记数组结束
+with open(json_file, "a", encoding="utf-8") as f:
+    f.write("\n]\n")
 
 print("Data saved to dialogues.json")
 
