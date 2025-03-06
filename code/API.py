@@ -14,7 +14,7 @@ from transformers import GenerationConfig
 with open("./modelConfig.json", "r") as f:
         modelConfig = json.load(f)
 
-# model = AutoModelForCausalLM.from_pretrained(modelConfig["model_name"])
+model = AutoModelForCausalLM.from_pretrained(modelConfig["evaluate_model"])
 # if modelConfig["evaluate_model"] != './model/source':
 #     print("load model:", modelConfig["evaluate_model"])
 #     model = PeftModel.from_pretrained(model, modelConfig["evaluate_model"]).to(modelConfig["device_map"])
@@ -78,7 +78,7 @@ def refactor_history(chat_history):
 
     
 
-def refactor_prompt(prompt, RAGon=False):
+def refactor_prompt(prompt, RAGon=True):
     if RAGon == False:
         return prompt
     else:
@@ -103,7 +103,7 @@ def generate():
     prompt = refactor_prompt(prompt, RAGon=False)
     history.append(get_user_format(prompt))
     print("start generate the answer...")
-    model_answer = evaluate.inference_from_transforms(history, generation_config, tokenizer)
+    model_answer = evaluate.inference_from_transforms(history, generation_config, model, tokenizer, modelConfig["device_map"])
     # print("answer get!:", model_answer)
     return jsonify({'generated_text': model_answer["content"]})
 

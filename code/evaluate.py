@@ -264,12 +264,12 @@ def evaluate(model, tokenizer, modelConfig, prompt, verbose=False):
 
     return full_output.split("</s>")[0].strip()
 
-def inference_from_transforms(messages, generation_config, tokenizer):
+def inference_from_transforms(messages, generation_config, model, tokenizer, devices):
     pipe = pipeline(
         "text-generation",
-        model=modelConfig["model_name"],
+        model=model,
         tokenizer=tokenizer,
-        device_map="cuda:3",
+        device_map=devices,
     )
     outputs = pipe(
         messages,
