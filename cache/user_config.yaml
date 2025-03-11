@@ -1,0 +1,5 @@
+cache_dir: null
+lang: zh
+last_model: Llama-3.2-3B-Instruct
+path_dict:
+  Llama-3.2-3B-Instruct: /home/jty/LLM-Medical-guidance/code/model/source

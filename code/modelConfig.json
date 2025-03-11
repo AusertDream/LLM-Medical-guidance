@@ -19,10 +19,10 @@
     "LORA_DROPOUT": 0.05,
     "VAL_SET_SIZE": 0.1,
     "TARGET_MODULES": ["q_proj", "v_proj"],
-    "device_map": "cuda:3",
+    "device_map": "cuda:0",
     "model_name": "./model/source",
     "version": "generatedQA",
     "gradient_accumulation_steps": 1,
     "evaluate_max_len": 4096,
-    "evaluate_model": "./model/source"
+    "evaluate_model": "./model/merged/llama3.2_3B_generatedQA"
   }
