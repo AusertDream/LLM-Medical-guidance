@@ -30,27 +30,24 @@ from peft import (
 from datasets import Dataset
 
 
-def startTrain(model, tokenizer, modelConfig):
+def startTrain(modelConfig):
     wandb.init(project='MedicalGuidance',
                settings=wandb.Settings(start_method='thread', console='off'),
                mode="online",
-               name="generatedQA_modified",
+               name="saves/Llama-3.2-3B-Instruct/lora/train_2025-03-05-13-05-45",
                config={
                    'learning_rate': 3e-4,
                    'architecture': 'Llama3.2-3B',
                    'dataset': 'generatedQA',
                    'batch_size': 16,
-                   "epoch": 20,
-                   "data_num": 10000
+                   "epoch": 10,
+                   "data_num": 1000
                })
     
     # 创建指定的输出目录
     os.makedirs(modelConfig["output_dir"], exist_ok=True)
     os.makedirs(modelConfig["ckpt_dir"], exist_ok=True)
 
-    # 根据 from_ckpt 标志，从 checkpoint 加载模型权重
-    if modelConfig["from_ckpt"]:
-        model = PeftModel.from_pretrained(modelConfig["output_dir"])
 
 
     # 使用 LoraConfig 配置 LORA 模型
@@ -62,38 +59,52 @@ def startTrain(model, tokenizer, modelConfig):
         bias="none",
         task_type="CAUSAL_LM",
     )
+    model = AutoModelForCausalLM.from_pretrained(modelConfig['model_name'])
+    tokenizer = AutoTokenizer.from_pretrained(modelConfig["model_name"])
     model = get_peft_model(model, config)
 
     # 将 tokenizer 的填充 token 设置为 0
-    tokenizer.pad_token_id = 0
+    tokenizer.pad_token_id = tokenizer.eos_token_id
 
-    data = load_dataset("json", data_files=modelConfig["dataset_dir"])["train"]
+    data = load_dataset("json", data_files=modelConfig["dataset_dir"])['train']
+    # 将数据集划分为训练集和验证集
+    if modelConfig["VAL_SET_SIZE"] > 0:
+        train_val_split = data.train_test_split(
+            test_size=modelConfig["VAL_SET_SIZE"], shuffle=True, seed=42
+        )
+        train_data = train_val_split["train"]
+        val_data = train_val_split["test"]
+    else:
+        train_data = data
+        val_data = None
+    
 
     def generate_training_data(data_point):
         """
         返回：
         - 包含token IDs、labels和attention mask的字典。
         """
-    # When users describe their symptoms to you, your task is to accurately determine which hospital department they should visit based on the symptoms provided. If the information given by the user is insufficient to identify the appropriate department, you should ask follow-up questions to gather more detailed symptom information. Your ultimate goal is to help users determine the most suitable medical department for their condition.
+        def refactor_dialog(data_point):
+            dialog = []
+            dialog.append({"role": "system", "content": data_point["system"]})
+            for t in data_point["conversations"]:
+                if t == data_point["conversations"][-1]:
+                    break
+                if t['from'] == 'user':
+                    dialog.append({"role": "user", "content": t['value']})
+                else:
+                    dialog.append({"role": "assistant", "content": t['value']})
+            return dialog
     
-        prompt = f"""\
-    [INST] <<SYS>>
-    You are a professional and friendly AI-powered medical triage assistant. 
-    <</SYS>>
-    [/INST]
-    {data_point["dialog"]}
-    """
-
-        # 计算用户提示词的 token 数量
-        len_user_prompt_tokens = (
-                len(
-                    tokenizer(
-                        prompt,
-                        truncation=True,
-                        max_length=modelConfig["CUTOFF_LEN"] + 1,
-                        padding=False,
-                    )["input_ids"]
-                ) - 1
+        prompt = tokenizer.apply_chat_template(
+            refactor_dialog(data_point),
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+        label = tokenizer.apply_chat_template(
+            refactor_dialog([data_point["conversations"][-1]]),
+            tokenize=False,
+            add_generation_prompt=True,
         )
         prompt_token = tokenizer(
                         prompt,
@@ -102,19 +113,12 @@ def startTrain(model, tokenizer, modelConfig):
                         padding="max_length",
                     )
         label_token = tokenizer(
-                        prompt,
+                        label,
                         truncation=True,
                         max_length=modelConfig["CUTOFF_LEN"] + 1,
                         padding="max_length",
                     )
-        # 将完整的输入和输出转换为 tokens
-        full_tokens = tokenizer(
-            prompt + "</s>",
-            truncation=True,
-            max_length=modelConfig["CUTOFF_LEN"] + 1,
-            padding="max_length",
-            )["input_ids"][:-1]
-        
+
         return {
             "input_ids": prompt_token["input_ids"],
             "labels": label_token["input_ids"],
@@ -122,8 +126,7 @@ def startTrain(model, tokenizer, modelConfig):
         }
 
 
-
-    data = data.map(generate_training_data, remove_columns=["dialog"])
+    data = data.map(generate_training_data, remove_columns=["conversations", "system"])
     
     # train model
     optimizer = torch.optim.AdamW(model.parameters(), lr=modelConfig["LEARNING_RATE"])
@@ -142,16 +145,34 @@ def startTrain(model, tokenizer, modelConfig):
             logits = outputs.logits
             loss = criterion(logits.view(-1, logits.size(-1)), labels.view(-1))
             lossnumber += loss.item()
-            wandb.log({"loss_perstep": loss.item()})
+            wandb.log({"train/loss": loss.item()})
             loss.backward()
             optimizer.step()
         
-        wandb.log({"loss_perepoch": lossnumber/((len(data)+modelConfig["BATCH_SIZE"] - 1)//modelConfig["BATCH_SIZE"])})
+        wandb.log({"train/loss_epoch": lossnumber/((len(data)+modelConfig["BATCH_SIZE"] - 1)//modelConfig["BATCH_SIZE"])})
             
     if os.path.exists(modelConfig["output_dir"])==False:
         os.mkdir(modelConfig["output_dir"])
     # 将训练好的模型保存到指定目录
     model.save_pretrained(modelConfig["output_dir"])
-    wandb.finish()
+
+    # start validate
+    model.eval()
+    with torch.no_grad():
+        for i in tqdm(range(0, len(val_data), modelConfig["BATCH_SIZE"]), desc="Validation:"):
+            batch = val_data[i: i + modelConfig["BATCH_SIZE"]]
+            input_ids = torch.tensor(batch["input_ids"]).to(modelConfig["device_map"])
+            attention_mask = torch.tensor(batch["attention_mask"]).to(modelConfig["device_map"])
+            labels = torch.tensor(batch["labels"]).to(modelConfig["device_map"])
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+            logits = outputs.logits
+            loss = criterion(logits.view(-1, logits.size(-1)), labels.view(-1))
+            val_loss = loss.item()
+            wandb.log({"validation/loss": val_loss/modelConfig["BATCH_SIZE"]})
 
     
+    wandb.finish()
+
+
+
+

@@ -32,10 +32,7 @@ if __name__ == '__main__':
     with open("./modelConfig.json", "r") as f:
         modelConfig = json.load(f)
 
-    model = AutoModelForCausalLM.from_pretrained(modelConfig["model_name"])
-    tokenizer = AutoTokenizer.from_pretrained(modelConfig["model_name"])
-
     # start train
-    train.startTrain(model, tokenizer, modelConfig)
+    train.startTrain(modelConfig)
 
     print("Training finished.")

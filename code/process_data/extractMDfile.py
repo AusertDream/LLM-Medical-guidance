@@ -19,8 +19,8 @@ def extract_md_files(source_dir, target_dir):
 
 
 
-source_directory = './temp/output'
-target_directory = './data/books'
+source_directory = './output'
+target_directory = './data'
 
 
 extract_md_files(source_directory, target_directory)
