@@ -21,12 +21,12 @@ def extract_dialogue(text: str):
 
 
 
-numbers = 1000
+numbers = 100
 client = OpenAI(api_key="sk-c6abf11ab86f4bb6b38ef96c234ca89b", base_url="https://api.deepseek.com")
 random_context = RAGInterface.random_sample(numbers)
 sharegpt_data = []
 
-json_file = "dialogues.json"
+json_file = "test_data.json"
 # 1. 先写入一个 '['，表示 JSON 数组的开始
 with open(json_file, "w", encoding="utf-8") as f:
     f.write("[\n")
