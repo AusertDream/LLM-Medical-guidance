@@ -269,7 +269,7 @@ def inference_from_transforms(messages, generation_config, model, tokenizer, dev
         "text-generation",
         model=model,
         tokenizer=tokenizer,
-        device_map=devices,
+        device=devices,
     )
     outputs = pipe(
         messages,

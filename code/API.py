@@ -25,7 +25,7 @@ tokenizer = AutoTokenizer.from_pretrained(modelConfig["model_name"])
 tokenizer.pad_token = tokenizer.eos_token
 generation_config = GenerationConfig(
         do_sample=True,
-        temperature=0.8,
+        temperature=1.3,
         num_beams=3,
         top_p=0.3,
         no_repeat_ngram_size=3,
@@ -62,7 +62,7 @@ def print_gpu_memory():
 
 def refactor_history(chat_history):
     history = []
-    instruction = '现在你要扮演一个医院中导诊台的护士，你的职责是根据患者的病情描述，告诉他们应该挂什么科室。如果病情描述较少，可以继续询问其他症状。要求对话尽量简短。最终必须且只给出一个科室。'
+    instruction = '现在你要扮演一个医院中导诊台的护士，你的职责是根据患者的病情描述，告诉他们应该挂什么科室。如果不足以确认科室，应该向用户进一步提问。所给相关知识仅供参考，具体以患者实际情况为准。要求对话尽量简短。最终必须且只给出一个科室。'
     sys_commd = get_system_format(instruction)
     history.append(sys_commd)
     for chat in chat_history:
@@ -83,9 +83,9 @@ def refactor_prompt(prompt, RAGon=True):
         return prompt
     else:
         res = """【相关知识】
-        {context}
+        {context}   
         【用户问题】
-        {query}""".format(context=get_context(prompt, n_results=4), query=prompt)
+        {query}""".format(context=get_context(prompt, n_results=3), query=prompt)
         
         return res
 
@@ -100,7 +100,7 @@ def generate():
     chat_history = json_get["chatHistory"]
     prompt = json_get["userPrompt"]
     history = refactor_history(chat_history)
-    prompt = refactor_prompt(prompt, RAGon=False)
+    prompt = refactor_prompt(prompt, RAGon=True)
     history.append(get_user_format(prompt))
     print("start generate the answer...")
     model_answer = evaluate.inference_from_transforms(history, generation_config, model, tokenizer, modelConfig["device_map"])
