@@ -29,11 +29,10 @@ def convert_jsonl_to_json(jsonl_filename, json_filename):
     with open(json_filename, 'w', encoding='utf-8') as json_file:
         json.dump(data, json_file, ensure_ascii=False, indent=2)
 
-# 输入和输出文件路径
-jsonl_filename = 'input.jsonl'  # 替换为你自己的输入文件路径
-json_filename = 'output.json'   # 替换为你自己的输出文件路径
 
-# 执行转换
+jsonl_filename = 'input.jsonl'
+json_filename = 'output.json'
+
 convert_jsonl_to_json(jsonl_filename, json_filename)
 
 print(f"转换完成，结果已保存到 {json_filename}")

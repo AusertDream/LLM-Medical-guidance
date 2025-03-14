@@ -43,14 +43,10 @@ def startTrain(modelConfig):
                    "epoch": 10,
                    "data_num": 1000
                })
-    
-    # 创建指定的输出目录
+
     os.makedirs(modelConfig["output_dir"], exist_ok=True)
     os.makedirs(modelConfig["ckpt_dir"], exist_ok=True)
 
-
-
-    # 使用 LoraConfig 配置 LORA 模型
     config = LoraConfig(
         r=modelConfig["LORA_R"],
         lora_alpha=modelConfig["LORA_ALPHA"],
@@ -63,7 +59,6 @@ def startTrain(modelConfig):
     tokenizer = AutoTokenizer.from_pretrained(modelConfig["model_name"])
     model = get_peft_model(model, config)
 
-    # 将 tokenizer 的填充 token 设置为 0
     tokenizer.pad_token_id = tokenizer.eos_token_id
 
     data = load_dataset("json", data_files=modelConfig["dataset_dir"])['train']
@@ -72,10 +67,9 @@ def startTrain(modelConfig):
         train_val_split = data.train_test_split(
             test_size=modelConfig["VAL_SET_SIZE"], shuffle=True, seed=42
         )
-        train_data = train_val_split["train"]
+        data = train_val_split["train"]
         val_data = train_val_split["test"]
     else:
-        train_data = data
         val_data = None
     
 

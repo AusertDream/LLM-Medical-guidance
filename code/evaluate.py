@@ -234,7 +234,6 @@ def evaluate(model, tokenizer, modelConfig, prompt, verbose=False):
     - output: 模型生成的文本。
     """
     model.eval()
-    # 设置模型推理时的解码参数
     generation_config = GenerationConfig(
         do_sample=True,
         temperature=0.8,
@@ -243,10 +242,9 @@ def evaluate(model, tokenizer, modelConfig, prompt, verbose=False):
         no_repeat_ngram_size=3,
         pad_token_id=0,
     )
-    
-    # 将提示词转换为模型所需的 token 格式
+
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-    # 回答
+
     print("start generating")
     generation_output = model.generate(
         input_ids=inputs["input_ids"],
@@ -258,8 +256,7 @@ def evaluate(model, tokenizer, modelConfig, prompt, verbose=False):
     )
     
     # 解码时跳过历史
-    response_start = inputs.input_ids.shape[-1]  # 历史部分的 token 长度
-    # 解码并打印生成的回复
+    response_start = inputs.input_ids.shape[-1]
     full_output = tokenizer.decode(generation_output.sequences[0][response_start:], skip_special_tokens=True)
 
     return full_output.split("</s>")[0].strip()
