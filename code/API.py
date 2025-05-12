@@ -82,7 +82,8 @@ def refactor_prompt(prompt, RAGon=True):
     if RAGon == False:
         return prompt
     else:
-        res = """【相关知识】
+        res = """以下为相关参考资料，资料仅供参考，具体以患者实际情况为准。
+        【相关参考资料】
         {context}   
         【用户问题】
         {query}""".format(context=get_context(prompt, n_results=3), query=prompt)
