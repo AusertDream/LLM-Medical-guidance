@@ -1,5 +1,9 @@
-# LLM-Medical-guidance
+# 基于Llama和RAG的智能导医系统
 
-graduation project.
+本科毕设。智能导医说大白话就是：医院导诊台，病人描述病症，由AI判断病人应该挂什么科室。
 
-A fine-tuned LLM for medical guidance
+使用Deepseek R1生成的问诊对话数据，训练Llama3.2-3B模型(SFT)。
+
+同时使用RAG系统来辅助内容判断，增强对于罕见问题的判断效果。RAG reference为医学生数据，蓝皮书。
+
+
